@@ -2,8 +2,23 @@
 class IC_SharedData_Class
 {
     ; Note stats vs States. Confusing, but intended.
+
+
+        
+    LoopString ; set as a property to be able to overwrite and log loopString in the future.
+    {
+        get
+        {
+            return this._loopString
+        }
+
+        set
+        {
+            this._loopString := value
+        }
+    }
+
     StackFailStats := new StackFailStates
-    LoopString := ""
     TotalBossesHit := 0
     BossesHitThisRun := 0
     SwapsMadeThisRun := 0
@@ -20,7 +35,12 @@ class IC_SharedData_Class
     TargetStacks := 0
     ShiniesByChamp := {}
     ShiniesByChampJson := ""
-    ServerCallsAreComplete := True
+    GemsSpent := 0
+    LowestHasteStacks := 9999999
+    TotalRunsCount := 0
+    LastRunTime := 0
+    ScriptStartTime := 0
+    SharedDataTest := True
 
     Close()
     {
@@ -35,6 +55,6 @@ class IC_SharedData_Class
 
     ShowGUI()
     {
-        Gui, show
+        Gui, show, NA
     }
 }
