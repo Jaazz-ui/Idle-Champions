@@ -1,0 +1,43 @@
+﻿"sep=;"
+ARGUS Type;ARGUS 163;
+Serial Number;51312;
+Version;4.70.0D;
+Date;2025-09-25;
+Time;21:07:58;
+Notes;;
+Customer;;;;;
+Company Name;TMTkom GmbH;Steinkampstr. 69;;;
+
+SFF8472 Manufacturer;
+Name;"intec GmbH";
+OUI (hex);00 00 00;
+P/N;"ARGUS GPON ONT";
+Rev.;"1.0";
+S/N;"INGE10400A19";
+Date of Manufacture;22.10.2019;
+Calibration Date;2020-09-29;
+Calibration Date;;
+
+SFF8472 Specification;
+Wavelength;1310;nm;
+Transceiver;GPON;
+Encoding;NRZ;
+Medium;optical;
+Interface Speed;;
+
+SFF8472 Maximum Link Length;
+Cable Length;;m;
+Single Mode;40,0;km;
+Multimode OM1;;m;
+Multimode OM2;;m;
+Multimode OM3;;m;
+Multimode OM4;;m;
+;;
+Temperature;;
+Voltage;;
+Tx Bias;;
+;;
+Tx Power;;
+Rx Power;;
+Tx Level;;
+Rx Level;;

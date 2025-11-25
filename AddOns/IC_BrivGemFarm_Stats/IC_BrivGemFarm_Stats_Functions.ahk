@@ -40,6 +40,8 @@ class IC_BrivGemFarm_Stats_Component
     CompactTimestamps := false
     w700Height := 0
     w400Height := 0
+    SlowestRun := ""
+    FastestRun := ""
     
     SharedRunData[]
     {
@@ -367,14 +369,14 @@ class IC_BrivGemFarm_Stats_Component
         catch err
             foundComs := False
         this.StatsRunsCount += 1
-        if(this.StatsRunsCount == 2) ; CoreXP / Gems starting on FRESH run.
+        if(this.StatsRunsCount == 2 OR (this.StatsRunsCount > 2 AND this.CoreXPStart == "")) ; CoreXP / Gems starting on FRESH run.
             this.StoreStartingValues()
         if(this.StatsRunsCount == 1)
             this.ResetBrivFarmStats()
             , this.LastResetCount := g_SF.Memory.ReadResetsCount()
         this.StackFail := Max(this.StackFail, foundComs ? this.SharedRunData.StackFail : 0)
         resetsCount := g_SF.Memory.ReadResetsCount()
-        if ( resetsCount > this.LastResetCount )
+        if ( resetsCount > this.LastResetCount OR resetsCount < this.LastResetCount - 2)
             this.UpdateStartLoopStatsReset(foundComs, resetsCount)            
         if (foundComs)
             this.LastTriggerStart := this.SharedRunData.TriggerStart
@@ -399,18 +401,24 @@ class IC_BrivGemFarm_Stats_Component
             this.SharedRunData.TriggerStart := false
             this.SharedRunData.StackFail := false
             this.TotalRunCount := this.SharedRunData.TotalRunsCount
+            this.TotalFarmTime := (A_TickCount - this.ScriptStartTime)
         }
         if(IsObject(IC_InventoryView_Component) AND g_InventoryView != "") ; If InventoryView AddOn is available
             g_InventoryView.ReadCombinedInventory(this.TotalRunCount)
         this.LastResetCount := resetsCount
         if (this.SlowRunTime < this.PreviousRunTime AND this.TotalRunCount AND (!this.StackFail OR this.StackFail == 6))
+        {
             this.SlowRunTime := this.PreviousRunTime
+            this.SlowestRun := this.TotalRunCount
+        }
         if (this.FastRunTime > this.PreviousRunTime AND this.TotalRunCount AND (!this.StackFail OR this.StackFail == 6))
+        {
             this.FastRunTime := this.PreviousRunTime
+            this.FastestRun := this.TotalRunCount
+        }
         this.SbLastStacked := g_SF.Memory.ReadHasteStacks()
         if ( this.StackFail ) ; 1 = Did not make it to Stack Zone. 2 = Stacks did not convert. 3 = Game got stuck in adventure and restarted.
             this.FailRunTime += this.PreviousRunTime
-        this.TotalFarmTime := (A_TickCount - this.ScriptStartTime)
         this.TotalFarmTimeHrs := this.TotalFarmTime / 3600000
         if(this.TotalRunCount > 0)
             this.BossesPerHour := Round( ((xpGain := this.DoXPChecks()) / 5) / this.TotalFarmTimeHrs, 3) ; unmodified levels completed / 5 = boss levels completed
@@ -420,15 +428,16 @@ class IC_BrivGemFarm_Stats_Component
         }
         this.GemsTotal := ( g_SF.Memory.ReadGems() - this.GemStart ) + gemsSpent
         this.UpdateStartLoopStatsGUI(this.TotalFarmTime)
-        this.StackFail := 0
+        if (foundComs)
+            this.SharedRunData.StackFail := this.StackFail := 0
     }
     
     UpdateStartLoopStatsGUI()
     {
         if (this.TotalRunCount AND (!this.StackFail OR this.StackFail == 6))
         {
-            GuiControl, ICScriptHub:, FastRunTimeID, % this.FormatMsec(this.FastRunTime)
-            GuiControl, ICScriptHub:, SlowRunTimeID, % this.FormatMsec(this.SlowRunTime)
+            GuiControl, ICScriptHub:, FastRunTimeID, % this.FormatMsec(this.FastRunTime) . (this.FastestRun != "" ? (" [" . this.FastestRun . "]") : "")
+            GuiControl, ICScriptHub:, SlowRunTimeID, % this.FormatMsec(this.SlowRunTime) . (this.SlowestRun != "" ? (" [" . this.SlowestRun . "]") : "")
         }
         GuiControl, ICScriptHub:, PrevRunTimeID, % this.FormatMsec(this.PreviousRunTime)
         if ( this.StackFail )
@@ -743,6 +752,8 @@ class IC_BrivGemFarm_Stats_Component
         this.GemsTotal := 0
         this.LastLowestHasteRun := ""
         this.LastLowestHasteStacks := 9999999
+        this.SlowestRun := ""
+        this.FastestRun := ""
     }
 
     ;===========================================

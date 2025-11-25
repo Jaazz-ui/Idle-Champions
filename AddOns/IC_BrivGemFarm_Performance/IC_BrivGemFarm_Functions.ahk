@@ -15,6 +15,8 @@ class IC_BrivGemFarm_Class
     ThisRunStart := 0
     IsInModronFormation := True
     BossKillAttempt := False
+    previousSilverChestCount := 0
+    previousGoldChestCount := 0
 
     ;=====================================================
     ;Primary Functions for Briv Gem Farm
@@ -103,12 +105,13 @@ class IC_BrivGemFarm_Class
         g_PreviousZoneStartTime := A_TickCount
         g_SF.ToggleAutoProgress( 0, false, true )
         g_SharedData.StackFail := this.CheckForFailedConv()
-        this.keyspam := Array()
+        g_SF.keyspam := Array()
         g_SF.Memory.ActiveEffectKeyHandler.Refresh()
         ; Don't reset last stack success area if 3 or more runs have failed to stack.
-        this.LastStackSuccessArea := this.StackFailAreasTally[g_UserSettings [ "StackZone" ]] < this.MaxStackRestartFails ? g_UserSettings [ "StackZone" ] : this.LastStackSuccessArea
+        this.LastStackSuccessArea := this.StackFailAreasTally[g_BrivUserSettings[ "StackZone" ]] < this.MaxStackRestartFails ? g_BrivUserSettings[ "StackZone" ] : this.LastStackSuccessArea
         this.StackFailAreasThisRunTally := {}
         this.StackFailRetryAttempt := 0
+        this.DoneLeveling := False
         g_SF.AlreadyOfflineStackedThisRun := false
         g_SharedData.BossesHitThisRun := 0
         g_SharedData.SwapsMadeThisRun := 0
@@ -118,15 +121,16 @@ class IC_BrivGemFarm_Class
         firstRun := False
         g_SharedData.PlayServer := StrSplit(StrSplit(g_ServerCall.webroot,".")[1], "/")[3]
         ; Do Chests after Reset
-        g_BrivGemFarm.DoChests(g_SF.Memory.ReadChestCountByID(1), g_SF.Memory.ReadChestCountByID(2), g_SF.Memory.ReadGems())
+        this.CheckAndDoChests()
+        
         if(doBasePartySetup)
         {
             g_SF.WaitForFirstGoldSetup()
             if g_BrivUserSettings[ "Fkeys" ]
-                this.keyspam := g_SF.GetFormationFKeys(formationModron)
+                g_SF.keyspam := g_SF.GetFormationFKeys(formationModron)
             this.DoKeySpam := true
             this.keyspam.Push("{ClickDmg}")
-            this.DoPartySetup()
+            this.DoPartySetup(formationModron)
         }
         else
             g_SF.WaitForFirstGold()
@@ -143,7 +147,7 @@ class IC_BrivGemFarm_Class
         if (this.DoKeySpam AND g_BrivUserSettings[ "Fkeys" ] AND g_SF.AreChampionsUpgraded(formationModron)) 
         { ; leveling completed, remove champs from keyspam.
             g_SF.DirectedInput(hold:=0,release:=1, this.keyspam) ;keysup
-            this.keyspam := ["{ClickDmg}"]
+            g_SF.keyspam := ["{ClickDmg}"]
             this.DoKeySpam := false
         }
         g_SF.InitZone( this.keyspam )
@@ -171,10 +175,61 @@ class IC_BrivGemFarm_Class
         return true
     }
 
-    ; Empty function that can be overridden for extra actions taken if no modron reset is occurring.
-    GemFarmDoNonModronActions()
+    ; function that can be overridden for extra actions taken if no modron reset is occurring. Currently set to leveling.
+    GemFarmDoNonModronActions(currentZone := "")
     {
 
+        ; static lastZone := 0
+        if(this.DoneLeveling)
+            return
+        currKeySpam := []
+        ; this.Memory.ReadHeroUpgradeRequiredLevelByIndex(champID, A_Index - 1) ;bugfix ReadHeroUpgradesSize
+        keyspam := g_SF.GetFormationFKeys(g_SF.Memory.GetFormationByFavorite(g_SF.Memory.ReadMostRecentFormationFavorite()))
+        if(keyspam.Length() > 0)
+        {
+            keyspamLength := Min(keyspam.Length(), 3)
+            index := 1
+            index2 := 1
+            loop %keyspamLength%
+            {
+                ; extract fkey number, check champ in seat of number, check if it can afford to upgrade - if yes add to spam
+                seatID := SubStr(keyspam[index], 3, -1)
+                champID := g_SF.Memory.ReadSelectedChampIDBySeat(seatID)
+                if(this.CanAffordUpgrade(champID) AND !g_SF.Memory.ReadBoughtLastUpgradeBySeat(seatID))
+                {
+                    if(!g_SF.MemoryDoesChampHavePurchasedWithoutUpgraded(champID))
+                    ; if(!(g_SF.Memory.ReadChampLvlByID(champID) > (g_SF.Memory.GetHighestLevelRequiredForUpgradesByChampID(champID)) + 100))
+                        index := index + 1, currKeySpam.Push(keyspam[index - 1]) ; increment index but add index from before increment
+                }
+                else
+                    keyspam.RemoveAt(index)
+                if (currKeySpam.Length() > keyspamLength)
+                    break
+            }
+            if(currKeyspam.Length() > 0)
+            {
+                currKeySpam.Push("{ClickDmg}")
+                g_SF.DirectedInput(,,currKeySpam*)
+                Sleep, %sleepTime%
+            }
+            else
+                this.DoneLeveling := True
+        }
+        else
+            currKeySpam.Push("{ClickDmg}")
+        g_SF.DirectedInput(currKeySpam*)
+    }
+
+    CanAffordUpgrade(champID)
+    {
+        if (champID < 1)
+            return false
+        seat := g_SF.Memory.ReadChampSeatByID(champID)
+        cost := g_SF.Memory.ReadLevelUpCostBySeat(seat)
+        gold := g_SF.Memory.ReadGoldString()
+        compareIntCost := g_SF.ConvertNumberStringToInt(cost)
+        compareIntGold := g_SF.ConvertNumberStringToInt(gold)
+        return compareIntCost < compareIntGold
     }
 
     ;=====================================================
@@ -309,27 +364,24 @@ class IC_BrivGemFarm_Class
         counter := 0
         sleepTime := 100
         g_SharedData.LoopString := "Setting stack farm formation."
-        isFormation2 := g_SF.Memory.ReadMostRecentFormationFavorite() == 2 AND g_SF.IsCurrentFormation(g_SF.Memory.GetFormationByFavorite(2))
+        isFormation2 := g_SF.Memory.ReadMostRecentFormationFavorite() == 2 AND IC_BrivGemFarm_Class.BrivFunctions.HasSwappedFavoritesThisRun
         if (!isFormation2)
-        {
-            g_SF.DirectedInput(,,inputValues)
-            isFormation2 := g_SF.Memory.ReadMostRecentFormationFavorite() == 2
-            if(!isFormation2 AND g_SF.IsCurrentFormation(g_SF.Memory.GetFormationByFavorite(2)))
+            if(g_SF.IsCurrentFormation(stackFormation))
                 isFormation2 := True
-        }
         while (!isFormation2 AND ElapsedTime < 5000 )
         {
             ElapsedTime := A_TickCount - StartTime
             if (ElapsedTime > (sleepTime * counter++))
                 g_SF.DirectedInput(,,inputValues)
             ; Can't formation switch when under attack.
-            isFormation2 := g_SF.Memory.ReadMostRecentFormationFavorite() == 2
+            isFormation2 := g_SF.Memory.ReadMostRecentFormationFavorite() == 2 AND IC_BrivGemFarm_Class.BrivFunctions.HasSwappedFavoritesThisRun
+            if (!isFormation2)
+                if(g_SF.IsCurrentFormation(g_SF.Memory.GetFormationByFavorite(2)))
+                    isFormation2 := True
             if (ElapsedTime > 1000 AND !isFormation2 && g_SF.Memory.ReadNumAttackingMonstersReached() > 10 || g_SF.Memory.ReadNumRangedAttackingMonsters())
                  ; not W formation or briv is benched
                 if (g_SF.Memory.ReadChampBenchedByID(ActiveEffectKeySharedFunctions.Briv.HeroID) OR !(g_SF.Memory.ReadMostRecentFormationFavorite() == 2))
                     g_SF.FallBackFromZone()
-            if(!isFormation2 AND g_SF.IsCurrentFormation(g_SF.Memory.GetFormationByFavorite(2))) ; can get stuck trying to swap and failing.
-                isFormation2 := True
         }
         return
     }
@@ -520,7 +572,7 @@ class IC_BrivGemFarm_Class
 
         Returns:
     */
-    DoPartySetup()
+    DoPartySetup(formationModron)
     {
         g_SharedData.LoopString := "Leveling champions"
         formationFavorite1 := g_SF.Memory.GetFormationByFavorite( 1 )
@@ -533,9 +585,8 @@ class IC_BrivGemFarm_Class
             g_SF.LevelChampByID( ActiveEffectKeySharedFunctions.Havilar.HeroID, 15, 7000, "{q}") ; level havi
         if (g_BrivUserSettings[ "Fkeys" ])
         {
-            keyspam := g_SF.GetFormationFKeys(g_SF.Memory.GetActiveModronFormation()) ; level other formation champions
-            keyspam.Push("{ClickDmg}")
-            g_SF.DirectedInput(,release :=0, keyspam*) ;keysdown
+            g_SF.keyspam := g_SF.GetFormationFKeys(formationModron) ; level other formation champions
+            this.DoLevelingUntilNotEnoughGold("M")
         }
         g_SF.ModronResetZone := g_SF.Memory.GetModronResetArea() ; once per zone in case user changes it mid run.
         if (g_SF.ShouldRushWait())
@@ -573,6 +624,7 @@ class IC_BrivGemFarm_Class
             g_SharedData.LastRunTime := g_PreviousZoneStartTime - This.ThisRunStart
             , g_SharedData.TotalRunsCount += 1
         This.ThisRunStart := g_PreviousZoneStartTime
+        IC_BrivGemFarm_Class.BrivFunctions.HasSwappedFavoritesThisRun := False
         this.IsInModronFormation := g_SharedData.TriggerStart := True
     }
 
@@ -740,6 +792,26 @@ class IC_BrivGemFarm_Class
         return ((returnString != "") ? "Chests - " . returnString : "")
     }
     
+    CheckAndDoChests()
+    {
+        memorySilvers := g_SF.Memory.ReadChestCountByID(1)
+        memoryGolds := g_SF.Memory.ReadChestCountByID(2)
+        ; Prevent opening non-existent chests by checking if the count is the same as last time.
+        ; - Chest counts only update in-game when opening via calls if some are dropped or bought.
+        ; - So if the count didn't change between calls - the count can't be trusted. Assume 0.
+        numSilverChests := memorySilvers
+        if (this.previousSilverChestCount == numSilverChests)
+            numSilverChests := 0
+        numGoldChests := memoryGolds
+        if (this.previousGoldChestCount == numGoldChests)
+            numGoldChests := 0
+            
+        this.previousSilverChestCount := memorySilvers
+        this.previousGoldChestCount := memoryGolds
+        
+        g_BrivGemFarm.DoChests(numSilverChests, numGoldChests, g_SF.Memory.ReadGems())
+    }
+    
     ; Sends calls for buying or opening chests and tracks chest metrics.
     DoChests(numSilverChests := "", numGoldChests := "", gems:= "")
     {
@@ -768,7 +840,7 @@ class IC_BrivGemFarm_Class
         
         ; after chests buy/open
         currentLoopString := this.GetChestDifferenceString(startingPurchasedSilverChests, startingPurchasedGoldChests, startingOpenedGoldChests, startingOpenedSilverChests)
-	    loopString := currentLoopString == "" ? loopString : currentLoopString
+        loopString := currentLoopString == "" ? loopString : currentLoopString
         ; g_SharedData.LoopString := loopString
     }
     

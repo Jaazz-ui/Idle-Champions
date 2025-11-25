@@ -1,0 +1,83 @@
+﻿"sep=;"
+ARGUS Type;ARGUS 163;
+S/N;51312;
+Version;4.70.0D;
+Date;2025-08-28;
+Time;13:57:31;
+Notes;;
+Customer;;;;;
+Company Name;;
+
+SFF8472 Manufacturer;
+Name;"intec GmbH";
+OUI (hex);00 00 00;
+P/N;"ARGUS GPON ONT";
+Rev.;"1.0";
+S/N;"INGE10400A19";
+Date of Manufacture;22.10.2019;
+Calibration Date;2020-09-29;
+Calibration Date;;
+
+SFF8472 Specification;
+Wavelength;1310;nm;
+Transceiver;GPON;
+Encoding;NRZ;
+Medium;optical;
+Interface Speed;;
+
+SFF8472 Maximum Link Length;
+Cable Length;;m;
+Single Mode;40,0;km;
+Multimode OM1;;m;
+Multimode OM2;;m;
+Multimode OM3;;m;
+Multimode OM4;;m;
+;;
+Temperature;;
+Voltage;;
+Tx Bias;;
+;;
+Tx Power;;
+Rx Power;;
+Tx Level;;
+Rx Level;;
+
+PON Installation Test;
+OLT Identifier G2-2-08;
+Fiber No.;Attenuation [dB];
+1;16,91;
+2;17,19;
+3;17,41;
+4;16,98;
+5;18,43;
+6;18,04;
+
+
+Configuration;
+Wavelength;GPON (1490 nm);
+Job Number;;
+AP;;
+No. of Fibers;;
+Branch;;
+Power;;
+Tx Power;;
+Cabinet;;
+Area Code;;
+Job Number;212066282;
+Network Level;3;
+Length;Up to 3 km;
+Area Code;2392;
+Cabinet;1013;
+Branch;6;
+Cable Length;109;m;
+ONT;1013001;
+ONT Type 1;ONT Type 2;
+Apartments;6;
+Description;"";
+Miscellaneous;"";
+ONT;;
+Home ID;;
+Description;;
+Miscellaneous;;
+PON ID Format;T-COM;
+Target Attenu. to;21,00;dB;
